@@ -1,6 +1,24 @@
 //Budget controller
 var budgetController = (function() {
-  // bir tane kurucu metod tanimladik ve budget contoller icin bu degerleri verdik.
+  //Burada sınıflarımızı oluşturacağım
+  class Budget {
+    constructor(id,description,value){
+         this.id = id;
+         this.description = description;
+         this.value = value;
+    }
+  }
+  class Expense extends Budget{
+   constructor(id,description,value){
+     super(id,description,value);
+     this.percentage = -1;
+   }
+  }
+  class Income extends Budget{
+    constructor(id,description,value){
+      super(id,description,value);
+    }
+  }
   
 })();
 
