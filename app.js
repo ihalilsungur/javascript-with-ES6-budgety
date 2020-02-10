@@ -99,6 +99,20 @@ let UIController = (() => {
     expensesPercLabel: ".item__percentage",
     dateLabel: ".budget__title--month"
   };
+  let formatNumber =  (num, type)=> {
+    let numSplit, int, dec;
+    num = Math.abs(num);//num değerinin mutlak değerin aldık.
+    num = num.toFixed(2);
+    numSplit = num.split(".");
+    int = numSplit[0];
+
+    if (int.length > 3) {
+        int = int.substr(0, int.length - 3) + "." + int.substr(int.length - 3, 3);
+    }
+    dec = numSplit[1];
+    //type === 'exp' ? sign = '-' : sign = '+';
+    return (type === 'exp' ? '-' : '+') + ' ' + int + ',' + dec;
+};
 
   return {
        //return içinde yazdığımız kodları aslında  Controller modülünde erişmek için erişime açıyoruz.
@@ -116,30 +130,52 @@ let UIController = (() => {
         Eklenen yeni nesneleri arayüzde görünlemek için addListItem fonksiyonun kullandık.
          */
         addListItem : (obj,type) => {
-        let html,newHtml,element;
+        let html,element;
         //ilk olarak oluşturulan nesne için arayüzde HTML oluşturalım.
         if (type === 'inc') {
           element = DOMstrings.incomeContainer;
           html =
-          '<div class="item clearfix" id="inc-%id%"><div class="item__description">%description%</div>' +
-          '<div class="right clearfix"><div class="item__value">%value%</div>' +
-          '<div class="item__delete"><button class="item__delete--btn"><i class="ion-ios-close-outline"></i></button>' +
-          "</div> </div></div>";
+          `<div class="item clearfix" id="inc-${obj.id}">
+             <div class="item__description">${obj.description}</div>
+               <div class="right clearfix">
+              <div class="item__value">${obj.value}</div>
+                 <div class="item__delete">
+                     <button class="item__delete--btn">
+                        <i class="ion-ios-close-outline"></i>
+                     </button>
+                 </div>
+                </div>
+           </div>`;
         }else if(type === 'exp'){
          element = DOMstrings.expensesContainer;
-         html = '<div class="item clearfix" id="exp-%id%"><div class="item__description">%description%</div>' +
-         '<div class="right clearfix"> <div class="item__value">%value%</div>' +
-         '<div class="item__percentage">21%</div> <div class="item__delete">' +
-         '<button class="item__delete--btn"><i class="ion-ios-close-outline"></i></button>' +
-         " </div></div> </div>";
+         html = `<div class="item clearfix" id="exp-${obj.id}">
+                   <div class="item__description">${obj.description}</div>
+                     <div class="right clearfix"> 
+                        <div class="item__value">${obj.value}</div>
+                           <div class="item__percentage">21%</div> 
+                               <div class="item__delete">
+                                  <button class="item__delete--btn">
+                                      <i class="ion-ios-close-outline"></i>
+                                  </button>
+                               </div>
+                      </div>
+                 </div>`;
           }
            //buradaki html string ekranda statik değerlerle değiştirelim
-           newHtml = html.replace("%id%", obj.id);
-           newHtml = newHtml.replace("%description%", obj.description);
-           newHtml = newHtml.replace("%value%", formatNumber(obj.value, type));
+           // newHtml = html.replace("%id%", obj.id);
+           //newHtml = newHtml.replace("%description%", obj.description);
+           //newHtml = newHtml.replace("%value%", formatNumber(obj.value, type));
 
-           //newHtml DOM ekleyelim
-           document.querySelector(element).insertAdjacentHTML("beforeend", newHtml);
+           //html DOM ekleyelim
+           document.querySelector(element).insertAdjacentHTML("beforeend", html);
+        },
+        clearFields : () => {
+          let inputDescription;
+          inputDescription = document.querySelector(DOMstrings.inputDescription);
+          inputDescription.value = "";
+         document.querySelector(DOMstrings.inputValue).value = "";
+         inputDescription.focus();
+
         },
 
       /*
@@ -183,7 +219,9 @@ var controller = ((budgetCtrl, UICtrl) => {
           //2.itemleri bütçe denetleyicisine ekle
           newItem = budgetCtrl.addItem(input.type,input.description,input.value);
         //3.Eklenen öğeyi UIControllere ekle
+        UICtrl.addListItem(newItem,input.type);
         //4.Alanları Temizle
+        UICtrl.clearFields();
         //5.Bütçeyi hesapla ve güncelle
         //6.Yüzdelikleri hesapla ve güncelle
         }
