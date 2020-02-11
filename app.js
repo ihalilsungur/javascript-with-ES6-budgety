@@ -13,12 +13,35 @@ var budgetController = (() =>{
      super(id,description,value);
      this.percentage = -1;
    }
+   calcPercentage = (totalIncome)=>{
+     if (totalIncome > 0) {
+       this.percentage = Math.round(this.value / totalIncome) * 100;
+     } else {
+       this.percentage = -1;
+     }
+   }
   }
   class Income extends Budget{
     constructor(id,description,value){
       super(id,description,value);
     }
   }
+
+  /*
+  toplam gelir ve gider hesaplama fonksiyonu
+  * */
+ let calculateTotal = (type)=>{
+  let sum = 0;
+   data.allItems[type].forEach(current => {
+     sum += current.value; 
+   });
+    /*
+    buradaki toplam gelir ve giderimizi totals nesnesi içindeki exp ve inc değişkenlerine
+    gönderdik.*/
+    data.totals[type] = sum;
+ }
+
+
 
   let data ={
     allItems :{
@@ -61,6 +84,37 @@ var budgetController = (() =>{
              //yeni oluşturulan nesnenin geri döndürülmesi
              return newItem;
         },
+        deleteItem : (type,id) => {
+             /*
+            * Burada örneğin [ 1 2 4 6 8 ] gibi biri dizimiz var
+            * biz burda örneğin id = 6 olan öğeyi silmek isteiğimizde direk olarak data.allItems[type][id]
+            * ile silemeyiz. çünkü id = 6  olan öğeyi ancak index numarasına göre silmek gerekiyor.
+            * bunun için önce gelen id nin index numarasını öğrenip ona göre silmemiz gerekir.
+            * */
+
+            data.allItems[type].forEach((current,index)=>{
+              if(id === current.id){
+                data.allItems[type].splice(index,1);
+              }
+            });
+        },
+
+        calculateBudget :(type) => {
+         //toplam expense(gider) ve income(gelir) hesaplama
+         calculateTotal("inc");
+         calculateTotal("exp");
+           // Hesaplanan bütçe  : income - expense
+           data.budget = data.totals.inc - data.totals.exp;
+        },
+
+        getBudget:  () => {
+          return {
+              budget: data.budget,
+              totalInc: data.totals.inc,
+              totalExp: data.totals.exp,
+              percentage: data.percentage
+          }
+      },
 
         testing:  ()=> {
           console.log("Data : ", data);
@@ -97,7 +151,7 @@ let UIController = (() => {
     percentageLabel: ".budget__expenses--percentage",
     container: ".container",
     expensesPercLabel: ".item__percentage",
-    dateLabel: ".budget__title--month"
+    dataLabel: ".budget__title--month"
   };
   let formatNumber =  (num, type)=> {
     let numSplit, int, dec;
@@ -161,13 +215,15 @@ let UIController = (() => {
                       </div>
                  </div>`;
           }
-           //buradaki html string ekranda statik değerlerle değiştirelim
-           // newHtml = html.replace("%id%", obj.id);
-           //newHtml = newHtml.replace("%description%", obj.description);
-           //newHtml = newHtml.replace("%value%", formatNumber(obj.value, type));
 
            //html DOM ekleyelim
            document.querySelector(element).insertAdjacentHTML("beforeend", html);
+        },
+          /*Silmek için seçtiğimiz nesneyi sildiğimiz zaman nesnenin ara yüzdende sildim.*/
+          deleteListItem:  (selectorId) => {
+            console.log("Selector Id : ",selectorId);
+            let el = document.getElementById(selectorId);
+            el.parentNode.removeChild(el);
         },
         clearFields : () => {
           let inputDescription;
@@ -176,7 +232,28 @@ let UIController = (() => {
          document.querySelector(DOMstrings.inputValue).value = "";
          inputDescription.focus();
 
+          },
+
+          displayBudget :  (obj) => {
+            let type;
+            obj.budget >= 0 ? type = "inc" : type = "exp";
+            document.querySelector(DOMstrings.budgetLabel).textContent = formatNumber(obj.budget, type);
+            document.querySelector(DOMstrings.incomeLabel).textContent = formatNumber(obj.totalInc, type);
+            document.querySelector(DOMstrings.expensesLabel).textContent = formatNumber(obj.totalExp, type);
+            if (obj.percentage > 0) {
+                document.querySelector(DOMstrings.percentageLabel).textContent = obj.percentage + " %";
+            } else {
+                document.querySelector(DOMstrings.percentageLabel).textContent = "---";
+            }
         },
+        displayMonth :  () => {
+          let now, year, month, months;
+          months = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
+          now = new Date();
+          month = now.getMonth();
+          year = now.getFullYear();
+        document.querySelector(DOMstrings.dataLabel).textContent = months[month] + " " + year;
+      },
 
       /*
          DOMStrings nesnemizi controller modülünden erişmek için getDOMStrings değişkenini tanımladık.
@@ -199,13 +276,23 @@ var controller = ((budgetCtrl, UICtrl) => {
      ctrlAddItem();
       }
     });
-    /*
-    document
-      .querySelector(DOM.container)
-      .addEventListener("click", ctrlDeleteItem);
-      document.querySelector(DOM.inputType).addEventListener('change',UICtrl.changedType);
-      */
+  
+    document.querySelector(DOM.container).addEventListener("click", ctrlDeleteItem);
+      //document.querySelector(DOM.inputType).addEventListener('change',UICtrl.changedType);
+      
   };
+
+  /*
+  bütçeyi güncelleme metodumuz
+  */
+ let updateBudget = () => {
+   //1.Bütçeyi Hesapla
+   budgetCtrl.calculateBudget();
+   //2.Hesaplanan bütçeyi geri döndürme
+   let budget = budgetCtrl.getBudget();
+   //3.Bütçeyi UIController ara yüzüne gönder
+   UICtrl.displayBudget(budget);
+ }
 
   let ctrlAddItem = () =>{
     let input ,newItem;
@@ -223,15 +310,38 @@ var controller = ((budgetCtrl, UICtrl) => {
         //4.Alanları Temizle
         UICtrl.clearFields();
         //5.Bütçeyi hesapla ve güncelle
+        updateBudget();
         //6.Yüzdelikleri hesapla ve güncelle
         }
-  }
+  };
+  let ctrlDeleteItem = (event)=>{
+    let itemId, splitId,type,id;
+    itemId = event.target.parentNode.parentNode.parentNode.parentNode.id;
+    splitId = itemId.split('-');
+    type = splitId[0];
+    id =parseInt( splitId[1]);
+     //1. seçilen nesnenin data yapisindan silinmesi
+     budgetCtrl.deleteItem(type,id);
+    //2. silinen nesnenin arayüzden silinmesi
+    UICtrl.deleteListItem(itemId);
+    //3. yeni bütçenin hesaplanmasının güncellenmesi
+    updateBudget();
+
+  };
   return {
     init : () => {
       console.log("Application has started!.");
-      setupEventlisteners();
-    }
-  }
+      UICtrl.displayMonth();
+      UICtrl.displayBudget({
+        budget: 0,
+        totalInc: 0,
+        totalExp: 0,
+        percentage: -1
+    });
+    setupEventlisteners();
+    },
+    
+  };
   
 })(budgetController, UIController);
 
