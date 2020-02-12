@@ -13,13 +13,16 @@ var budgetController = (() =>{
      super(id,description,value);
      this.percentage = -1;
    }
-   calcPercentage = (totalIncome)=>{
+   calcPercentage (totalIncome) {
      if (totalIncome > 0) {
-       this.percentage = Math.round(this.value / totalIncome) * 100;
+       this.percentage = Math.round((this.value / totalIncome) * 100);
      } else {
        this.percentage = -1;
      }
    }
+   getPercentage () {
+     return this.percentage;;
+   } 
   }
   class Income extends Budget{
     constructor(id,description,value){
@@ -40,8 +43,6 @@ var budgetController = (() =>{
     gönderdik.*/
     data.totals[type] = sum;
  }
-
-
 
   let data ={
     allItems :{
@@ -105,8 +106,25 @@ var budgetController = (() =>{
          calculateTotal("exp");
            // Hesaplanan bütçe  : income - expense
            data.budget = data.totals.inc - data.totals.exp;
-        },
+             /*harcamalarımızın yüzdeliğinin hesaplanması
+             expense = 100 ve income =200 ise 100/200 *100 = %50
+             */
+            if (data.totals.inc > 0) {
+              data.percentage = Math.round((data.totals.exp / data.totals.inc) * 100);
+          } else {
+              data.percentage = -1;
+          }
 
+        },
+        
+        calculatePercentages : () =>{
+           data.allItems.exp.forEach((current) => current.calcPercentage(data.totals.inc));
+        },
+        getPercentages :() => {
+          let allPerce = data.allItems.exp.map((current) => current.getPercentage());
+          return allPerce;
+        },
+        
         getBudget:  () => {
           return {
               budget: data.budget,
@@ -168,6 +186,12 @@ let UIController = (() => {
     return (type === 'exp' ? '-' : '+') + ' ' + int + ',' + dec;
 };
 
+let nodeListForEach =  (list, callback) => {
+  for (let i = 0; i < list.length; i++) {
+      callback(list[i], i);
+  }
+};
+
   return {
        //return içinde yazdığımız kodları aslında  Controller modülünde erişmek için erişime açıyoruz.
        getInput : ()=>{
@@ -225,6 +249,7 @@ let UIController = (() => {
             let el = document.getElementById(selectorId);
             el.parentNode.removeChild(el);
         },
+      
         clearFields : () => {
           let inputDescription;
           inputDescription = document.querySelector(DOMstrings.inputDescription);
@@ -246,6 +271,17 @@ let UIController = (() => {
                 document.querySelector(DOMstrings.percentageLabel).textContent = "---";
             }
         },
+        displayPercentages :  (percentages) => {
+          let fields = document.querySelectorAll(DOMstrings.expensesPercLabel);
+          nodeListForEach(fields,  (current, index) =>{
+              if (percentages[index] > 0) {
+                  current.textContent = percentages[index] + ' %';
+              } else {
+                  current.textContent = "---";
+              }
+
+          });
+      },
         displayMonth :  () => {
           let now, year, month, months;
           months = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
@@ -254,6 +290,17 @@ let UIController = (() => {
           year = now.getFullYear();
         document.querySelector(DOMstrings.dataLabel).textContent = months[month] + " " + year;
       },
+      changedType:  () => {
+        let fields = document.querySelectorAll(
+            DOMstrings.inputType + ',' +
+            DOMstrings.inputDescription + ',' +
+            DOMstrings.inputValue
+        );
+        nodeListForEach(fields, (current) => {
+           current.classList.toggle('red-focus');
+        });
+        document.querySelector(DOMstrings.inputButton).classList.toggle('red');
+    },
 
       /*
          DOMStrings nesnemizi controller modülünden erişmek için getDOMStrings değişkenini tanımladık.
@@ -278,7 +325,7 @@ var controller = ((budgetCtrl, UICtrl) => {
     });
   
     document.querySelector(DOM.container).addEventListener("click", ctrlDeleteItem);
-      //document.querySelector(DOM.inputType).addEventListener('change',UICtrl.changedType);
+    document.querySelector(DOM.inputType).addEventListener('change',UICtrl.changedType);
       
   };
 
@@ -293,6 +340,15 @@ var controller = ((budgetCtrl, UICtrl) => {
    //3.Bütçeyi UIController ara yüzüne gönder
    UICtrl.displayBudget(budget);
  }
+
+ let updatePercentages = ()=>{
+  //1.yüzdeleri güncelleme
+  budgetCtrl.calculatePercentages();
+ //2.budget controllerdan yüzdeleri okuma
+ let percentages = budgetCtrl.getPercentages();
+ //3.new yüzdeleri ara yüzde güncelleme
+ UICtrl.displayPercentages(percentages);
+};
 
   let ctrlAddItem = () =>{
     let input ,newItem;
@@ -312,8 +368,12 @@ var controller = ((budgetCtrl, UICtrl) => {
         //5.Bütçeyi hesapla ve güncelle
         updateBudget();
         //6.Yüzdelikleri hesapla ve güncelle
+        updatePercentages();
         }
   };
+ 
+ 
+
   let ctrlDeleteItem = (event)=>{
     let itemId, splitId,type,id;
     itemId = event.target.parentNode.parentNode.parentNode.parentNode.id;
